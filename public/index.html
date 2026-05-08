@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoTrader Bot</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060a0f;
+    --panel: #0b1119;
+    --border: #1a2840;
+    --accent: #00e5ff;
+    --green: #00ff88;
+    --red: #ff3355;
+    --yellow: #ffcc00;
+    --text: #c8d8e8;
+    --dim: #4a6a8a;
+    --glow: 0 0 20px rgba(0,229,255,0.3);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background: radial-gradient(ellipse 80% 60% at 20% 10%, rgba(0,229,255,0.04) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 80% 80%, rgba(0,255,136,0.03) 0%, transparent 60%);
+    pointer-events:none; z-index:0;
+  }
+
+  /* HEADER */
+  header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(11,17,25,0.95);
+    position:sticky; top:0; z-index:100;
+    backdrop-filter: blur(8px);
+  }
+  .logo {
+    font-size:22px; font-weight:700; letter-spacing:3px;
+    color: var(--accent); text-transform:uppercase;
+    text-shadow: var(--glow);
+  }
+  .logo span { color: var(--green); }
+  .status-badge {
+    display:flex; align-items:center; gap:8px;
+    font-family:'Share Tech Mono', monospace; font-size:12px;
+  }
+  .dot {
+    width:8px; height:8px; border-radius:50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 1.5s infinite;
+  }
+  .dot.off { background:var(--red); box-shadow:0 0 8px var(--red); animation:none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .header-right { display:flex; align-items:center; gap:20px; }
+  .exchange-tag {
+    background: rgba(0,229,255,0.08); border:1px solid rgba(0,229,255,0.2);
+    padding: 4px 12px; border-radius:4px; font-size:13px;
+    color: var(--accent); font-family:'Share Tech Mono',monospace;
+  }
+
+  /* LAYOUT */
+  .main { display:grid; grid-template-columns:280px 1fr; min-height:calc(100vh - 57px); position:relative; z-index:1; }
+
+  /* SIDEBAR */
+  aside {
+    border-right:1px solid var(--border);
+    background: rgba(11,17,25,0.6);
+    padding:20px 0;
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .section-label {
+    font-size:10px; letter-spacing:3px; color:var(--dim);
+    text-transform:uppercase; padding:12px 20px 6px;
+    font-family:'Share Tech Mono',monospace;
+  }
+  .nav-item {
+    display:flex; align-items:center; gap:12px;
+    padding:10px 20px; cursor:pointer; transition:all 0.2s;
+    border-left: 3px solid transparent;
+    color: var(--dim);
+  }
+  .nav-item:hover { color:var(--text); background:rgba(0,229,255,0.04); }
+  .nav-item.active {
+    color:var(--accent); background:rgba(0,229,255,0.08);
+    border-left-color: var(--accent);
+  }
+  .nav-icon { font-size:18px; width:20px; text-align:center; }
+
+  /* CONTENT */
+  .content { padding:24px; overflow-y:auto; }
+
+  /* STATS ROW */
+  .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+  .stat-card {
+    background: var(--panel);
+    border:1px solid var(--border);
+    border-radius:6px; padding:18px 20px;
+    position:relative; overflow:hidden; transition:border-color 0.2s;
+  }
+  .stat-card:hover { border-color: rgba(0,229,255,0.3); }
+  .stat-card::after {
+    content:''; position:absolute; bottom:0; left:0; right:0; height:2px;
+  }
+  .stat-card.cyan::after { background: linear-gradient(90deg, transparent, var(--accent), transparent); }
+  .stat-card.green::after { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+  .stat-card.red::after { background: linear-gradient(90deg, transparent, var(--red), transparent); }
+  .stat-card.yellow::after { background: linear-gradient(90deg, transparent, var(--yellow), transparent); }
+  .stat-label { font-size:11px; letter-spacing:2px; color:var(--dim); text-transform:uppercase; margin-bottom:10px; font-family:'Share Tech Mono',monospace; }
+  .stat-value { font-size:28px; font-weight:700; line-height:1; }
+  .stat-value.cyan { color:var(--accent); }
+  .stat-value.green { color:var(--green); }
+  .stat-value.red { color:var(--red); }
+  .stat-value.yellow { color:var(--yellow); }
+  .stat-sub { font-size:12px; color:var(--dim); margin-top:6px; font-family:'Share Tech Mono',monospace; }
+
+  /* GRID */
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+  .panel {
+    background:var(--panel); border:1px solid var(--border); border-radius:6px; overflow:hidden;
+  }
+  .panel-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 20px; border-bottom:1px solid var(--border);
+  }
+  .panel-title { font-size:13px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--accent); }
+  .panel-body { padding:20px; }
+
+  /* CONFIG FORM */
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .form-group { display:flex; flex-direction:column; gap:6px; }
+  .form-group.full { grid-column:1/-1; }
+  label { font-size:11px; letter-spacing:1.5px; color:var(--dim); text-transform:uppercase; font-family:'Share Tech Mono',monospace; }
+  input, select {
+    background: rgba(0,0,0,0.4); border:1px solid var(--border);
+    color: var(--text); padding:9px 12px; border-radius:4px;
+    font-family:'Share Tech Mono',monospace; font-size:13px;
+    transition:border-color 0.2s; outline:none;
+  }
+  input:focus, select:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(0,229,255,0.1); }
+  select option { background: #0b1119; }
+
+  /* BUTTONS */
+  .btn-row { display:flex; gap:12px; margin-top:16px; }
+  .btn {
+    flex:1; padding:12px; border:none; border-radius:4px; cursor:pointer;
+    font-family:'Rajdhani',sans-serif; font-size:15px; font-weight:700;
+    letter-spacing:2px; text-transform:uppercase; transition:all 0.2s;
+  }
+  .btn-start {
+    background: linear-gradient(135deg, #00c851, #00ff88);
+    color:#000;
+    box-shadow: 0 4px 20px rgba(0,255,136,0.25);
+  }
+  .btn-start:hover { transform:translateY(-1px); box-shadow:0 6px 25px rgba(0,255,136,0.4); }
+  .btn-stop {
+    background: linear-gradient(135deg, #cc0033, #ff3355);
+    color:#fff;
+    box-shadow: 0 4px 20px rgba(255,51,85,0.2);
+  }
+  .btn-stop:hover { transform:translateY(-1px); }
+  .btn-stop:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+  .btn-start:disabled { opacity:0.4; cursor:not-allowed; transform:none; box-shadow:none; }
+
+  /* TRADES TABLE */
+  table { width:100%; border-collapse:collapse; }
+  th {
+    text-align:left; padding:8px 12px; font-size:10px; letter-spacing:2px;
+    color:var(--dim); text-transform:uppercase; border-bottom:1px solid var(--border);
+    font-family:'Share Tech Mono',monospace;
+  }
+  td { padding:10px 12px; font-family:'Share Tech Mono',monospace; font-size:12px; border-bottom:1px solid rgba(26,40,64,0.5); }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:rgba(0,229,255,0.03); }
+  .side-buy { color:var(--green); }
+  .side-sell { color:var(--red); }
+  .pnl-pos { color:var(--green); }
+  .pnl-neg { color:var(--red); }
+  .badge {
+    display:inline-block; padding:2px 8px; border-radius:3px; font-size:10px; letter-spacing:1px;
+  }
+  .badge-filled { background:rgba(0,255,136,0.12); color:var(--green); }
+  .badge-open { background:rgba(0,229,255,0.1); color:var(--accent); }
+  .badge-cancel { background:rgba(255,51,85,0.1); color:var(--red); }
+
+  /* LOG */
+  .log-box {
+    background:#000; border:1px solid var(--border); border-radius:4px;
+    padding:14px; height:200px; overflow-y:auto; font-family:'Share Tech Mono',monospace; font-size:11px; line-height:1.7;
+  }
+  .log-box::-webkit-scrollbar { width:4px; }
+  .log-box::-webkit-scrollbar-track { background:#000; }
+  .log-box::-webkit-scrollbar-thumb { background:var(--border); }
+  .log-info { color:var(--accent); }
+  .log-ok { color:var(--green); }
+  .log-err { color:var(--red); }
+  .log-warn { color:var(--yellow); }
+  .log-dim { color:var(--dim); }
+
+  /* CHART */
+  .chart-area {
+    height:180px; position:relative; overflow:hidden;
+  }
+  canvas { display:block; }
+
+  /* API KEY */
+  .api-section { margin-bottom:24px; }
+  .api-row { display:flex; gap:12px; align-items:flex-end; }
+  .api-row .form-group { flex:1; }
+  .btn-sm {
+    padding:9px 18px; border:1px solid var(--accent); background:rgba(0,229,255,0.08);
+    color:var(--accent); border-radius:4px; cursor:pointer; font-family:'Rajdhani',sans-serif;
+    font-size:13px; font-weight:600; letter-spacing:1px; transition:all 0.2s; white-space:nowrap;
+  }
+  .btn-sm:hover { background:rgba(0,229,255,0.15); }
+
+  /* TICKER */
+  .ticker-bar {
+    background: rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:4px;
+    padding:12px 16px; display:flex; gap:32px; align-items:center; margin-bottom:24px;
+    overflow-x:auto; font-family:'Share Tech Mono',monospace; font-size:12px;
+  }
+  .ticker-item { display:flex; gap:8px; align-items:center; white-space:nowrap; }
+  .ticker-sym { color:var(--dim); }
+  .ticker-price { color:var(--text); font-weight:600; }
+  .ticker-chg.up { color:var(--green); }
+  .ticker-chg.dn { color:var(--red); }
+
+  /* TOGGLE */
+  .toggle-wrap { display:flex; align-items:center; gap:10px; }
+  .toggle { position:relative; width:40px; height:22px; }
+  .toggle input { opacity:0; width:0; height:0; }
+  .slider {
+    position:absolute; inset:0; background:var(--border); border-radius:11px;
+    cursor:pointer; transition:0.3s;
+  }
+  .slider::before {
+    content:''; position:absolute; height:16px; width:16px; left:3px; bottom:3px;
+    background:#fff; border-radius:50%; transition:0.3s;
+  }
+  input:checked + .slider { background:var(--green); }
+  input:checked + .slider::before { transform:translateX(18px); }
+  .toggle-label { font-size:12px; color:var(--dim); font-family:'Share Tech Mono',monospace; }
+
+  /* RESPONSIVE */
+  @media(max-width:900px) {
+    .main { grid-template-columns:1fr; }
+    aside { display:none; }
+    .stats-row { grid-template-columns:1fr 1fr; }
+    .grid-2 { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">AUTO<span>TRADER</span></div>
+  <div class="ticker-bar" style="flex:1;margin:0 24px;border:none;background:none;padding:0">
+    <div class="ticker-item"><span class="ticker-sym">BTC/USDT</span><span class="ticker-price" id="t1">67,420.50</span><span class="ticker-chg up" id="c1">+1.24%</span></div>
+    <div class="ticker-item"><span class="ticker-sym">ETH/USDT</span><span class="ticker-price" id="t2">3,512.80</span><span class="ticker-chg dn" id="c2">-0.38%</span></div>
+    <div class="ticker-item"><span class="ticker-sym">SOL/USDT</span><span class="ticker-price" id="t3">172.40</span><span class="ticker-chg up" id="c3">+2.15%</span></div>
+    <div class="ticker-item"><span class="ticker-sym">BNB/USDT</span><span class="ticker-price" id="t4">612.30</span><span class="ticker-chg up" id="c4">+0.87%</span></div>
+  </div>
+  <div class="header-right">
+    <div class="exchange-tag" id="exTag">BINANCE</div>
+    <div class="status-badge">
+      <div class="dot off" id="statusDot"></div>
+      <span id="statusText">OFFLINE</span>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+  <aside>
+    <div class="section-label">Навігація</div>
+    <div class="nav-item active" onclick="showTab('dashboard',this)"><span class="nav-icon">⬡</span> Dashboard</div>
+    <div class="nav-item" onclick="showTab('config',this)"><span class="nav-icon">⚙</span> Конфігурація</div>
+    <div class="nav-item" onclick="showTab('trades',this)"><span class="nav-icon">◈</span> Угоди</div>
+    <div class="nav-item" onclick="showTab('log',this)"><span class="nav-icon">▤</span> Журнал</div>
+
+    <div class="section-label" style="margin-top:16px">Швидкі дії</div>
+    <div style="padding:12px 20px; display:flex; flex-direction:column; gap:10px;">
+      <button class="btn btn-start" id="sideStartBtn" onclick="toggleBot()">▶ ЗАПУСТИТИ</button>
+      <button class="btn btn-stop" id="sideStopBtn" onclick="toggleBot()" disabled>■ ЗУПИНИТИ</button>
+    </div>
+
+    <div class="section-label" style="margin-top:16px">Позиція</div>
+    <div style="padding:0 20px; font-family:'Share Tech Mono',monospace; font-size:12px; display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex;justify-content:space-between;color:var(--dim)">Баланс <span style="color:var(--text)" id="sBalance">—</span></div>
+      <div style="display:flex;justify-content:space-between;color:var(--dim)">PnL <span id="sPnl" style="color:var(--dim)">—</span></div>
+      <div style="display:flex;justify-content:space-between;color:var(--dim)">Угод <span style="color:var(--text)" id="sCount">0</span></div>
+    </div>
+  </aside>
+
+  <div class="content">
+
+    <!-- DASHBOARD TAB -->
+    <div id="tab-dashboard">
+      <div class="stats-row">
+        <div class="stat-card cyan">
+          <div class="stat-label">Баланс USDT</div>
+          <div class="stat-value cyan" id="balVal">—</div>
+          <div class="stat-sub" id="balSub">Не підключено</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Загальний PnL</div>
+          <div class="stat-value green" id="pnlVal">+0.00</div>
+          <div class="stat-sub" id="pnlSub">0 угод</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-label">Win Rate</div>
+          <div class="stat-value yellow" id="wrVal">0%</div>
+          <div class="stat-sub" id="wrSub">0 / 0</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">Drawdown</div>
+          <div class="stat-value red" id="ddVal">0.0%</div>
+          <div class="stat-sub">Макс. просадка</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Equity Curve</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim)">LIVE</div>
+          </div>
+          <div class="panel-body">
+            <div class="chart-area">
+              <canvas id="equityChart" width="400" height="180"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Останні угоди</div>
+          </div>
+          <div style="overflow-x:auto">
+            <table>
+              <thead><tr><th>Пара</th><th>Сторона</th><th>Ціна</th><th>PnL</th><th>Статус</th></tr></thead>
+              <tbody id="recentTrades">
+                <tr><td colspan="5" style="text-align:center;color:var(--dim);padding:20px">Угоди відсутні</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Системний журнал</div></div>
+        <div class="panel-body">
+          <div class="log-box" id="mainLog">
+            <div class="log-dim">[SYSTEM] AutoTrader Bot v2.4.1 ініціалізовано</div>
+            <div class="log-dim">[SYSTEM] Вкажіть API ключі та запустіть бота</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONFIG TAB -->
+    <div id="tab-config" style="display:none">
+      <div class="panel api-section">
+        <div class="panel-header"><div class="panel-title">API Підключення</div></div>
+        <div class="panel-body">
+          <div style="margin-bottom:14px">
+            <label>Біржа</label>
+            <select id="exchangeSel" onchange="updateExchange()" style="margin-top:6px;width:100%">
+              <option value="binance">Binance</option>
+              <option value="bybit">Bybit</option>
+              <option value="okx">OKX</option>
+              <option value="kucoin">KuCoin</option>
+              <option value="gateio">Gate.io</option>
+              <option value="mexc">Mexc</option>
+            </select>
+          </div>
+          <div class="api-row">
+            <div class="form-group"><label>API Key</label><input type="password" id="apiKey" placeholder="Введіть API ключ..."></div>
+            <div class="form-group"><label>API Secret</label><input type="password" id="apiSecret" placeholder="Введіть Secret..."></div>
+            <button class="btn-sm" onclick="testConnection()">Тест</button>
+          </div>
+          <div style="margin-top:10px;font-family:'Share Tech Mono',monospace;font-size:11px" id="connStatus"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Параметри стратегії</div></div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Торгова пара</label>
+              <select id="tradePair">
+                <option>BTC/USDT</option><option>ETH/USDT</option>
+                <option>SOL/USDT</option><option>BNB/USDT</option>
+                <option>XRP/USDT</option><option>DOGE/USDT</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Стратегія</label>
+              <select id="strategy">
+                <option value="grid">Grid Trading</option>
+                <option value="dca">DCA (Усереднення)</option>
+                <option value="macd">MACD Crossover</option>
+                <option value="rsi">RSI Reversal</option>
+                <option value="bb">Bollinger Bands</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Таймфрейм</label>
+              <select id="tf">
+                <option>1m</option><option>5m</option><option selected>15m</option>
+                <option>1h</option><option>4h</option><option>1d</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Розмір позиції (USDT)</label>
+              <input type="number" id="posSize" value="100" min="10">
+            </div>
+            <div class="form-group">
+              <label>Stop Loss (%)</label>
+              <input type="number" id="sl" value="2.0" step="0.1">
+            </div>
+            <div class="form-group">
+              <label>Take Profit (%)</label>
+              <input type="number" id="tp" value="4.0" step="0.1">
+            </div>
+            <div class="form-group">
+              <label>Макс. угод одночасно</label>
+              <input type="number" id="maxTrades" value="3" min="1" max="10">
+            </div>
+            <div class="form-group">
+              <label>Денний ліміт угод</label>
+              <input type="number" id="dayLimit" value="20" min="1">
+            </div>
+            <div class="form-group full" style="flex-direction:row;justify-content:space-between;align-items:center">
+              <span style="font-size:13px;color:var(--text)">Trailing Stop</span>
+              <label class="toggle"><input type="checkbox" id="trailStop"><span class="slider"></span></label>
+            </div>
+            <div class="form-group full" style="flex-direction:row;justify-content:space-between;align-items:center">
+              <span style="font-size:13px;color:var(--text)">Торгівля в обидві сторони (LONG/SHORT)</span>
+              <label class="toggle"><input type="checkbox" id="bothSides"><span class="slider"></span></label>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-start" id="mainStartBtn" onclick="toggleBot()">▶ ЗАПУСТИТИ БОТА</button>
+            <button class="btn btn-stop" id="mainStopBtn" onclick="toggleBot()" disabled>■ ЗУПИНИТИ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRADES TAB -->
+    <div id="tab-trades" style="display:none">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Всі угоди</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim)" id="tradeCount">0 угод</div>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Час</th><th>Пара</th><th>Сторона</th><th>Ціна входу</th><th>Ціна виходу</th><th>Обсяг</th><th>PnL</th><th>Статус</th></tr></thead>
+            <tbody id="allTrades">
+              <tr><td colspan="8" style="text-align:center;color:var(--dim);padding:24px">Немає угод</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOG TAB -->
+    <div id="tab-log" style="display:none">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Детальний журнал</div>
+          <button class="btn-sm" onclick="clearLog()">Очистити</button>
+        </div>
+        <div class="panel-body">
+          <div class="log-box" id="detailLog" style="height:500px">
+            <div class="log-dim">[SYSTEM] Журнал ініціалізовано</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ---- STATE ----
+let botRunning = false;
+let trades = [];
+let balance = 0;
+let totalPnl = 0;
+let wins = 0;
+let equityHistory = [10000];
+let botInterval = null;
+let tickerInterval = null;
+let priceData = { 'BTC/USDT':67420.50, 'ETH/USDT':3512.80, 'SOL/USDT':172.40, 'BNB/USDT':612.30, 'XRP/USDT':0.62, 'DOGE/USDT':0.182 };
+
+// ---- TABS ----
+function showTab(tab, el) {
+  document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display='none');
+  document.getElementById('tab-'+tab).style.display='';
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if(el) el.classList.add('active');
+  if(tab==='log') document.getElementById('tab-log').querySelector('.log-box').innerHTML = document.getElementById('mainLog').innerHTML;
+}
+
+// ---- API TEST (mock) ----
+function updateExchange() {
+  const ex = document.getElementById('exchangeSel').value.toUpperCase();
+  document.getElementById('exTag').textContent = ex;
+}
+
+function testConnection() {
+  const key = document.getElementById('apiKey').value.trim();
+  const secret = document.getElementById('apiSecret').value.trim();
+  const el = document.getElementById('connStatus');
+  if(!key || !secret) {
+    el.innerHTML = '<span class="log-err">✗ Введіть API Key та Secret</span>';
+    return;
+  }
+  el.innerHTML = '<span class="log-warn">⟳ Перевірка з\'єднання...</span>';
+  setTimeout(() => {
+    // Mock successful connection
+    balance = 1250 + Math.random()*500;
+    el.innerHTML = `<span class="log-ok">✓ Підключено успішно | Баланс: ${balance.toFixed(2)} USDT</span>`;
+    document.getElementById('balVal').textContent = balance.toFixed(2);
+    document.getElementById('balSub').textContent = 'USDT доступно';
+    document.getElementById('sBalance').textContent = balance.toFixed(2);
+    addLog('INFO', `API підключено. Баланс: ${balance.toFixed(2)} USDT`);
+  }, 1200);
+}
+
+// ---- BOT CONTROL ----
+function toggleBot() {
+  if(!botRunning) startBot(); else stopBot();
+}
+
+function startBot() {
+  const key = document.getElementById('apiKey').value.trim();
+  if(!key) { addLog('ERR','Вкажіть API ключі перед запуском'); alert('Спочатку підключіться до API!'); return; }
+  botRunning = true;
+  setStatus(true);
+  addLog('OK','Бот запущено. Стратегія: '+document.getElementById('strategy').options[document.getElementById('strategy').selectedIndex].text);
+  addLog('INFO','Пара: '+document.getElementById('tradePair').value+' | TF: '+document.getElementById('tf').value);
+  botInterval = setInterval(botTick, 3000);
+  tickerInterval = setInterval(updateTickers, 2000);
+}
+
+function stopBot() {
+  botRunning = false;
+  setStatus(false);
+  clearInterval(botInterval);
+  botInterval = null;
+  addLog('WARN','Бот зупинено');
+}
+
+function setStatus(on) {
+  document.getElementById('statusDot').className = 'dot' + (on ? '' : ' off');
+  document.getElementById('statusText').textContent = on ? 'ONLINE' : 'OFFLINE';
+  ['Start','Stop'].forEach(s => {
+    ['side','main'].forEach(p => {
+      const b = document.getElementById(p+s+'Btn');
+      if(s==='Start') b.disabled = on;
+      else b.disabled = !on;
+    });
+  });
+}
+
+// ---- MOCK TRADING TICK ----
+function botTick() {
+  const pairs = ['BTC/USDT','ETH/USDT','SOL/USDT'];
+  const pair = pairs[Math.floor(Math.random()*pairs.length)];
+  const side = Math.random() > 0.5 ? 'BUY' : 'SELL';
+  const price = priceData[pair] * (1 + (Math.random()-0.5)*0.005);
+  const size = parseFloat(document.getElementById('posSize').value)||100;
+  const pnlPct = (Math.random()*6 - 2.2);
+  const pnl = size * pnlPct / 100;
+  const isWin = pnl > 0;
+  if(isWin) wins++;
+  totalPnl += pnl;
+  equityHistory.push(10000 + totalPnl);
+  if(equityHistory.length > 40) equityHistory.shift();
+
+  const trade = {
+    time: new Date().toLocaleTimeString('uk'),
+    pair, side, entryPrice: price,
+    exitPrice: price * (1 + pnlPct/100),
+    size, pnl, status:'FILLED'
+  };
+  trades.unshift(trade);
+  if(trades.length > 50) trades.pop();
+
+  document.getElementById('pnlVal').textContent = (totalPnl >= 0 ? '+' : '') + totalPnl.toFixed(2);
+  document.getElementById('pnlVal').className = 'stat-value ' + (totalPnl >= 0 ? 'green' : 'red');
+  document.getElementById('pnlSub').textContent = trades.length + ' угод';
+  document.getElementById('sPnl').textContent = (totalPnl >= 0 ? '+' : '') + totalPnl.toFixed(2);
+  document.getElementById('sPnl').style.color = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('sCount').textContent = trades.length;
+  const wr = trades.length ? Math.round(wins/trades.length*100) : 0;
+  document.getElementById('wrVal').textContent = wr+'%';
+  document.getElementById('wrSub').textContent = wins+' / '+trades.length;
+  const dd = Math.min(0, Math.min(...equityHistory)-10000);
+  document.getElementById('ddVal').textContent = (dd/100).toFixed(1)+'%';
+  document.getElementById('tradeCount').textContent = trades.length + ' угод';
+
+  renderTrades();
+  drawChart();
+  addLog(isWin?'OK':'ERR', `${side} ${pair} @ ${price.toFixed(2)} | PnL: ${pnl >= 0?'+':''}${pnl.toFixed(2)} USDT`);
+}
+
+function renderTrades() {
+  const recent = trades.slice(0,5);
+  document.getElementById('recentTrades').innerHTML = recent.map(t =>
+    `<tr>
+      <td>${t.pair}</td>
+      <td class="${t.side==='BUY'?'side-buy':'side-sell'}">${t.side}</td>
+      <td>${t.entryPrice.toFixed(2)}</td>
+      <td class="${t.pnl>=0?'pnl-pos':'pnl-neg'}">${t.pnl>=0?'+':''}${t.pnl.toFixed(2)}</td>
+      <td><span class="badge badge-filled">FILLED</span></td>
+    </tr>`).join('');
+
+  document.getElementById('allTrades').innerHTML = trades.map(t =>
+    `<tr>
+      <td>${t.time}</td>
+      <td>${t.pair}</td>
+      <td class="${t.side==='BUY'?'side-buy':'side-sell'}">${t.side}</td>
+      <td>${t.entryPrice.toFixed(2)}</td>
+      <td>${t.exitPrice.toFixed(2)}</td>
+      <td>${t.size} USDT</td>
+      <td class="${t.pnl>=0?'pnl-pos':'pnl-neg'}">${t.pnl>=0?'+':''}${t.pnl.toFixed(2)}</td>
+      <td><span class="badge badge-filled">FILLED</span></td>
+    </tr>`).join('');
+}
+
+// ---- CHART ----
+function drawChart() {
+  const canvas = document.getElementById('equityChart');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.parentElement.offsetWidth || 400;
+  const H = 180;
+  canvas.width = W; canvas.height = H;
+  ctx.clearRect(0,0,W,H);
+
+  const data = equityHistory;
+  if(data.length < 2) return;
+  const min = Math.min(...data) - 50;
+  const max = Math.max(...data) + 50;
+  const range = max - min || 1;
+  const pts = data.map((v,i) => ({ x: (i/(data.length-1))*W, y: H - ((v-min)/range)*(H-20)-10 }));
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(26,40,64,0.6)'; ctx.lineWidth = 1;
+  for(let i=1;i<4;i++) {
+    ctx.beginPath(); ctx.moveTo(0, H*i/4); ctx.lineTo(W, H*i/4); ctx.stroke();
+  }
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'rgba(0,229,255,0.18)');
+  grad.addColorStop(1,'rgba(0,229,255,0)');
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, H);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, H);
+  ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle = 'var(--accent)'; ctx.lineWidth = 2; ctx.stroke();
+
+  // Last dot
+  const last = pts[pts.length-1];
+  ctx.beginPath(); ctx.arc(last.x, last.y, 4, 0, Math.PI*2);
+  ctx.fillStyle = 'var(--accent)'; ctx.fill();
+}
+
+// ---- TICKER ----
+function updateTickers() {
+  const tickers = [
+    {id:'t1',cid:'c1',key:'BTC/USDT'},
+    {id:'t2',cid:'c2',key:'ETH/USDT'},
+    {id:'t3',cid:'c3',key:'SOL/USDT'},
+    {id:'t4',cid:'c4',key:'BNB/USDT'},
+  ];
+  tickers.forEach(t => {
+    const chg = (Math.random()-0.48)*0.002;
+    priceData[t.key] *= (1+chg);
+    document.getElementById(t.id).textContent = priceData[t.key].toFixed(2);
+    const chgPct = chg*100;
+    const cel = document.getElementById(t.cid);
+    cel.textContent = (chgPct>=0?'+':'')+chgPct.toFixed(2)+'%';
+    cel.className = 'ticker-chg '+(chgPct>=0?'up':'dn');
+  });
+}
+
+// ---- LOG ----
+function addLog(type, msg) {
+  const ts = new Date().toLocaleTimeString('uk');
+  const cls = {INFO:'log-info',OK:'log-ok',ERR:'log-err',WARN:'log-warn'}[type]||'log-dim';
+  const line = `<div class="${cls}">[${ts}] [${type}] ${msg}</div>`;
+  const el = document.getElementById('mainLog');
+  el.innerHTML += line;
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('mainLog').innerHTML = '';
+  document.getElementById('detailLog').innerHTML = '';
+}
+
+// ---- INIT ----
+drawChart();
+setInterval(drawChart, 5000);
+</script>
+</body>
+</html>
