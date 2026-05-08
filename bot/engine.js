@@ -203,3 +203,31 @@ class TradingBot extends EventEmitter {
 }
 
 module.exports = new TradingBot();
+
+// bot/engine.js — у циклі моніторингу позицій
+async monitorPositions() {
+  for (const position of this.openPositions) {
+    if (position.exchange === 'mexc' && position.type === 'spot') {
+      const ticker = await this.connector.fetchTicker(position.symbol);
+      const currentPrice = ticker.last;
+      
+      // Ручна перевірка Stop-Loss
+      if (position.stopLossPrice && currentPrice <= position.stopLossPrice) {
+        logger.info(`MEXC SL triggered: ${position.symbol} @ ${currentPrice}`);
+        await this.connector.createOrder(
+          position.symbol, 'market', 'sell', position.amount
+        );
+        await this.closePosition(position.id, 'SL_HIT');
+      }
+      
+      // Ручна перевірка Take-Profit
+      if (position.takeProfitPrice && currentPrice >= position.takeProfitPrice) {
+        logger.info(`MEXC TP triggered: ${position.symbol} @ ${currentPrice}`);
+        await this.connector.createOrder(
+          position.symbol, 'market', 'sell', position.amount
+        );
+        await this.closePosition(position.id, 'TP_HIT');
+      }
+    }
+  }
+}
