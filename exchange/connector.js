@@ -112,3 +112,33 @@ class ExchangeConnector {
 }
 
 module.exports = new ExchangeConnector();
+
+const ccxt = require('ccxt');
+
+class ExchangeConnector {
+  constructor(config) {
+    this.exchangeId = config.exchange.toLowerCase(); // 'mexc'
+    
+    this.exchange = new ccxt[this.exchangeId]({
+      apiKey: config.apiKey,
+      secret: config.apiSecret,
+      enableRateLimit: true,
+      options: {
+        defaultType: 'spot', // або 'future' для ф'ючерсів
+        // MEXC-specific:
+        recvWindow: 5000,    // часове вікно для запитів
+      },
+      // Для тестового середовища:
+      ...(config.testnet && { 
+        urls: { 
+          api: { 
+            public: 'https://testnet.mexc.com/api',
+            private: 'https://testnet.mexc.com/api'
+          } 
+        } 
+      })
+    });
+  }
+  
+  // ... існуючі методи
+}
